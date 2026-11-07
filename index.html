@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TempLog - Live Body Temperature & Symptom Tracker</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+    }
+    /* Custom scrollbar for feelings grid */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 antialiased pb-16">
+
+  <!-- Header Banner -->
+  <header class="bg-white/80 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-20 shadow-xs">
+    <div class="max-w-5xl mx-auto px-4 py-3.5 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="p-2.5 bg-gradient-to-tr from-rose-500 to-rose-600 text-white rounded-xl shadow-md shadow-rose-500/20">
+          <i data-lucide="activity" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+            TempLog
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200">LIVE</span>
+          </h1>
+          <p class="text-xs text-slate-500 font-medium">Realtime Body Temperature & Symptom Sync</p>
+        </div>
+      </div>
+      
+      <!-- Connection Status Badge -->
+      <div id="connection-status" class="flex items-center space-x-2">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          Firebase Connected
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Notification Toast Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none"></div>
+
+  <main class="max-w-5xl mx-auto px-4 py-8 space-y-6">
+
+    <!-- Database Info Banner -->
+    <div class="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div class="flex items-center gap-3.5">
+        <div class="p-3 bg-white/10 text-indigo-300 rounded-xl backdrop-blur-xs shrink-0">
+          <i data-lucide="database" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="font-bold text-sm text-slate-100">Live Firebase Realtime Database</h3>
+            <span class="text-[10px] bg-indigo-500/30 text-indigo-200 px-2 py-0.5 rounded-full border border-indigo-400/30">Synced</span>
+          </div>
+          <p class="text-xs text-slate-300 mt-0.5">All updates automatically reflect in real-time across any device opening this link.</p>
+        </div>
+      </div>
+      <div class="text-xs font-mono bg-black/40 text-indigo-300 px-3 py-1.5 rounded-lg border border-indigo-500/30 shrink-0 self-stretch sm:self-auto text-center">
+        temp-ea660-default-rtdb
+      </div>
+    </div>
+
+    <!-- Analytics Dashboard Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Latest Temp -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+        <div>
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Latest Reading</p>
+          <div class="flex items-baseline space-x-1 mt-1">
+            <span id="stat-latest-val" class="text-2xl sm:text-3xl font-extrabold text-slate-900">--</span>
+            <span id="stat-latest-unit" class="text-slate-500 text-xs font-semibold">°C</span>
+          </div>
+          <p id="stat-latest-time" class="text-[11px] text-slate-400 mt-1 truncate max-w-[130px]">No logs recorded</p>
+        </div>
+        <div id="stat-latest-icon-container" class="p-3 bg-slate-100 text-slate-600 rounded-xl shrink-0">
+          <i data-lucide="thermometer" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <!-- Current Status Tag -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+        <div>
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Current Status</p>
+          <div class="mt-2">
+            <span id="stat-status-badge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+              No Data
+            </span>
+          </div>
+          <p id="stat-status-desc" class="text-[11px] text-slate-400 mt-2 truncate max-w-[130px]">Awaiting initial log</p>
+        </div>
+        <div class="p-3 bg-slate-100 text-slate-600 rounded-xl shrink-0">
+          <i data-lucide="shield-alert" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <!-- Highest Temp -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+        <div>
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Peak Temperature</p>
+          <div class="flex items-baseline space-x-1 mt-1">
+            <span id="stat-peak-val" class="text-2xl sm:text-3xl font-extrabold text-slate-900">--</span>
+            <span id="stat-peak-unit" class="text-slate-500 text-xs font-semibold">°C</span>
+          </div>
+          <p id="stat-peak-time" class="text-[11px] text-slate-400 mt-1">Highest logged</p>
+        </div>
+        <div class="p-3 bg-rose-50 text-rose-600 rounded-xl shrink-0">
+          <i data-lucide="flame" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <!-- Total Logs -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+        <div>
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Entries</p>
+          <p id="stat-total-count" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">0</p>
+          <p class="text-[11px] text-slate-400 mt-1">Synced in cloud</p>
+        </div>
+        <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl shrink-0">
+          <i data-lucide="cloud" class="w-5 h-5"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Grid: Entry Form + History Stream -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Left Column: Input Form -->
+      <div class="lg:col-span-5 space-y-6">
+        <div class="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs sticky top-20">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i data-lucide="plus-circle" class="w-5 h-5 text-rose-500"></i>
+              Log Health Reading
+            </h2>
+            <!-- Temperature Unit Switcher -->
+            <div class="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+              <button id="btn-celsius" onclick="window.setUnit('C')" class="px-3 py-1 rounded-lg transition-all bg-white text-slate-900 shadow-xs">°C</button>
+              <button id="btn-fahrenheit" onclick="window.setUnit('F')" class="px-3 py-1 rounded-lg transition-all text-slate-500 hover:text-slate-800">°F</button>
+            </div>
+          </div>
+
+          <form id="temp-form" onsubmit="window.handleLogSubmit(event)" class="mt-5 space-y-5">
+            <!-- Temperature Input -->
+            <div>
+              <div class="flex justify-between items-center mb-1.5">
+                <label for="temp-input" class="block text-xs font-bold text-slate-600 uppercase tracking-wide">
+                  Body Temperature (<span id="unit-label">°C</span>)
+                </label>
+                <span class="text-[11px] text-slate-400 font-medium">Optional</span>
+              </div>
+              <div class="relative rounded-xl shadow-xs">
+                <input 
+                  type="number" 
+                  step="0.1" 
+                  min="30" 
+                  max="45" 
+                  id="temp-input" 
+                  placeholder="e.g. 37.0"
+                  class="w-full text-2xl font-extrabold px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all text-slate-900"
+                />
+                <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                  <span id="input-unit-symbol" class="text-slate-400 font-bold text-lg">°C</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Temp Presets -->
+            <div>
+              <span class="block text-[11px] font-semibold text-slate-400 mb-2">Quick Presets</span>
+              <div id="presets-container" class="grid grid-cols-4 gap-2">
+                <!-- Javascript injects preset buttons -->
+              </div>
+            </div>
+
+            <!-- Feelings & Symptoms Picker -->
+            <div>
+              <div class="flex justify-between items-center mb-1.5">
+                <label class="block text-xs font-bold text-slate-600 uppercase tracking-wide">
+                  Feelings & Symptoms
+                </label>
+                <span id="feeling-count-badge" class="text-[11px] bg-rose-50 text-rose-600 font-semibold px-2 py-0.5 rounded-md hidden">0 selected</span>
+              </div>
+              <div id="feelings-grid" class="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl custom-scrollbar">
+                <!-- Javascript populates 20+ feeling options -->
+              </div>
+            </div>
+
+            <!-- Optional Note -->
+            <div>
+              <label for="note-input" class="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
+                Note / Medication <span class="text-slate-400 font-normal lowercase">(optional)</span>
+              </label>
+              <input 
+                type="text" 
+                id="note-input" 
+                placeholder="e.g. Took 500mg Paracetamol"
+                maxlength="100"
+                class="w-full text-sm px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all text-slate-800 placeholder-slate-400"
+              />
+            </div>
+
+            <!-- Submit Button -->
+            <button 
+              type="submit" 
+              id="submit-btn"
+              class="w-full py-3.5 px-4 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-bold rounded-xl shadow-md shadow-rose-500/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2 text-sm"
+            >
+              <i data-lucide="cloud-upload" class="w-5 h-5"></i>
+              Save to Firebase Database
+            </button>
+          </form>
+
+          <!-- Status Categories Reference -->
+          <div class="mt-6 pt-5 border-t border-slate-100">
+            <span class="block text-[11px] font-bold text-slate-400 mb-3 uppercase tracking-wider">Fever Threshold Reference</span>
+            <div class="space-y-1.5 text-xs">
+              <div class="flex items-center justify-between p-2 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-100">
+                <span class="font-medium flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Normal Temperature
+                </span>
+                <span class="font-bold" id="range-normal">&lt; 37.5 °C</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded-lg bg-amber-50 text-amber-800 border border-amber-100">
+                <span class="font-medium flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-amber-500"></span> Mild Fever
+                </span>
+                <span class="font-bold" id="range-mild">37.5 - 38.4 °C</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded-lg bg-orange-50 text-orange-800 border border-orange-100">
+                <span class="font-medium flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-orange-500"></span> High Fever
+                </span>
+                <span class="font-bold" id="range-high">38.5 - 39.4 °C</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded-lg bg-rose-50 text-rose-800 border border-rose-100">
+                <span class="font-medium flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-rose-600"></span> Severe Fever
+                </span>
+                <span class="font-bold" id="range-severe">≥ 39.5 °C</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-100">
+                <span class="font-medium flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-indigo-500"></span> Feelings Only
+                </span>
+                <span class="font-bold">No Temp</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Realtime Feed -->
+      <div class="lg:col-span-7 space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
+          <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i data-lucide="radio" class="w-5 h-5 text-emerald-500 animate-pulse"></i>
+              Live History Feed
+            </h2>
+            <span id="live-indicator" class="text-xs font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">
+              Listening to Firebase...
+            </span>
+          </div>
+
+          <!-- Loading State -->
+          <div id="loading-state" class="py-12 text-center space-y-3">
+            <div class="w-8 h-8 border-3 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p class="text-xs text-slate-500 font-medium">Fetching real-time data from database...</p>
+          </div>
+
+          <!-- Empty State -->
+          <div id="empty-state" class="py-12 text-center hidden">
+            <div class="w-14 h-14 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <i data-lucide="thermometer-snowflake" class="w-7 h-7"></i>
+            </div>
+            <p class="text-sm font-bold text-slate-700">No temperature entries logged</p>
+            <p class="text-xs text-slate-400 mt-1 max-w-xs mx-auto">Log your body temperature or feelings using the form. Entries will show here in real-time for everyone with the link.</p>
+          </div>
+
+          <!-- Logs Feed Container -->
+          <div id="logs-container" class="space-y-3">
+            <!-- Firebase items rendered dynamically -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Firebase Modular App Script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // Provided Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCZR-14ISJ5Gcc873xY1mMoqkPLKO-ecNo",
+      authDomain: "temp-ea660.firebaseapp.com",
+      databaseURL: "https://temp-ea660-default-rtdb.firebaseio.com/",
+      projectId: "temp-ea660",
+      storageBucket: "temp-ea660.firebasestorage.app",
+      messagingSenderId: "313948415392",
+      appId: "1:313948415392:web:150207cff95ae41bd830c5"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const logsRef = ref(db, 'logs');
+
+    // Global App State
+    window.currentUnit = 'C';
+    window.selectedFeelings = new Set();
+    window.rawLogsData = [];
+
+    // 20 Detailed Feelings & Symptoms Options
+    window.feelingsList = [
+      { id: 'sad', label: 'Sad', icon: '😔' },
+      { id: 'tired', label: 'Tired', icon: '😫' },
+      { id: 'weak', label: 'Weak', icon: '🫠' },
+      { id: 'dizzy', label: 'Dizzy', icon: '💫' },
+      { id: 'sleepy', label: 'Sleepy', icon: '😴' },
+      { id: 'chills', label: 'Chills', icon: '🥶' },
+      { id: 'sweating', label: 'Sweating', icon: '🥵' },
+      { id: 'nausea', label: 'Nausea', icon: '🤢' },
+      { id: 'headache', label: 'Headache', icon: '🤯' },
+      { id: 'body_aches', label: 'Body Aches', icon: '🤒' },
+      { id: 'sore_throat', label: 'Sore Throat', icon: '🗣️' },
+      { id: 'cough', label: 'Coughing', icon: '😮‍💨' },
+      { id: 'congestion', label: 'Congested', icon: '🤧' },
+      { id: 'anxious', label: 'Anxious', icon: '😰' },
+      { id: 'restless', label: 'Restless', icon: '🫨' },
+      { id: 'brain_fog', label: 'Brain Fog', icon: '🌫️' },
+      { id: 'irritable', label: 'Irritable', icon: '😠' },
+      { id: 'loss_appetite', label: 'Loss of Appetite', icon: '🍽️' },
+      { id: 'hot_flashes', label: 'Hot Flashes', icon: '🔥' },
+      { id: 'stiff_neck', label: 'Stiff Neck', icon: '🧣' }
+    ];
+
+    // Unit Converters
+    function cToF(c) { return (c * 9/5) + 32; }
+    function fToC(f) { return (f - 32) * 5/9; }
+
+    function formatTempDisplay(tempC, targetUnit) {
+      if (tempC === null || tempC === undefined) return null;
+      if (targetUnit === 'F') {
+        return cToF(tempC).toFixed(1);
+      }
+      return parseFloat(tempC).toFixed(1);
+    }
+
+    // Fever Categorization Logic
+    function getTemperatureCategory(tempC) {
+      if (tempC === null || tempC === undefined) {
+        return {
+          key: 'feelings_only',
+          label: 'Feelings Only',
+          badgeBg: 'bg-indigo-50',
+          badgeText: 'text-indigo-700',
+          badgeBorder: 'border-indigo-200',
+          dotBg: 'bg-indigo-500',
+          cardBorder: 'hover:border-indigo-200',
+          desc: 'Logged feelings without temperature.'
+        };
+      }
+      
+      if (tempC < 37.5) {
+        return {
+          key: 'normal',
+          label: 'Normal Temp',
+          badgeBg: 'bg-emerald-50',
+          badgeText: 'text-emerald-700',
+          badgeBorder: 'border-emerald-200',
+          dotBg: 'bg-emerald-500',
+          cardBorder: 'hover:border-emerald-200',
+          desc: 'Temperature is within normal range.'
+        };
+      } else if (tempC <= 38.4) {
+        return {
+          key: 'mild',
+          label: 'Mild Fever',
+          badgeBg: 'bg-amber-50',
+          badgeText: 'text-amber-700',
+          badgeBorder: 'border-amber-200',
+          dotBg: 'bg-amber-500',
+          cardBorder: 'hover:border-amber-200',
+          desc: 'Low-grade fever detected.'
+        };
+      } else if (tempC <= 39.4) {
+        return {
+          key: 'high',
+          label: 'High Fever',
+          badgeBg: 'bg-orange-50',
+          badgeText: 'text-orange-700',
+          badgeBorder: 'border-orange-200',
+          dotBg: 'bg-orange-500',
+          cardBorder: 'hover:border-orange-200',
+          desc: 'High fever recorded. Rest and hydrate.'
+        };
+      } else {
+        return {
+          key: 'severe',
+          label: 'Severe Fever',
+          badgeBg: 'bg-rose-50',
+          badgeText: 'text-rose-700',
+          badgeBorder: 'border-rose-200',
+          dotBg: 'bg-rose-600',
+          cardBorder: 'hover:border-rose-200',
+          desc: 'Critical fever level. Seek medical care.'
+        };
+      }
+    }
+
+    // Precise Timestamp Formatter (with seconds)
+    function formatDateWithSeconds(isoString) {
+      if (!isoString) return 'Just now';
+      const date = new Date(isoString);
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      });
+    }
+
+    // UI Helper Methods
+    window.setUnit = function(unit) {
+      window.currentUnit = unit;
+      const btnC = document.getElementById('btn-celsius');
+      const btnF = document.getElementById('btn-fahrenheit');
+      const unitLabel = document.getElementById('unit-label');
+      const unitSymbol = document.getElementById('input-unit-symbol');
+      const input = document.getElementById('temp-input');
+
+      if (unit === 'C') {
+        btnC.className = "px-3 py-1 rounded-lg transition-all bg-white text-slate-900 shadow-xs font-bold";
+        btnF.className = "px-3 py-1 rounded-lg transition-all text-slate-500 hover:text-slate-800 font-semibold";
+        unitLabel.innerText = '°C';
+        unitSymbol.innerText = '°C';
+        input.min = '30';
+        input.max = '45';
+        input.placeholder = 'e.g. 37.0';
+      } else {
+        btnF.className = "px-3 py-1 rounded-lg transition-all bg-white text-slate-900 shadow-xs font-bold";
+        btnC.className = "px-3 py-1 rounded-lg transition-all text-slate-500 hover:text-slate-800 font-semibold";
+        unitLabel.innerText = '°F';
+        unitSymbol.innerText = '°F';
+        input.min = '86';
+        input.max = '113';
+        input.placeholder = 'e.g. 98.6';
+      }
+
+      updatePresetButtons();
+      updateClassificationRanges();
+      renderFeed();
+    };
+
+    window.toggleFeeling = function(id) {
+      if (window.selectedFeelings.has(id)) {
+        window.selectedFeelings.delete(id);
+      } else {
+        window.selectedFeelings.add(id);
+      }
+      renderFeelingsGrid();
+    };
+
+    function renderFeelingsGrid() {
+      const container = document.getElementById('feelings-grid');
+      container.innerHTML = window.feelingsList.map(item => {
+        const isSelected = window.selectedFeelings.has(item.id);
+        return `
+          <button 
+            type="button" 
+            onclick="window.toggleFeeling('${item.id}')"
+            class="px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 ${
+              isSelected 
+                ? 'bg-gradient-to-r from-rose-500 to-rose-600 text-white shadow-xs font-bold ring-2 ring-rose-500/20' 
+                : 'bg-white text-slate-700 border border-slate-200/80 hover:border-slate-300 hover:bg-slate-100/60'
+            }"
+          >
+            <span>${item.icon}</span>
+            <span>${item.label}</span>
+          </button>
+        `;
+      }).join('');
+
+      const countBadge = document.getElementById('feeling-count-badge');
+      if (window.selectedFeelings.size > 0) {
+        countBadge.innerText = `${window.selectedFeelings.size} selected`;
+        countBadge.classList.remove('hidden');
+      } else {
+        countBadge.classList.add('hidden');
+      }
+    }
+
+    function updatePresetButtons() {
+      const container = document.getElementById('presets-container');
+      const presets = window.currentUnit === 'C' ? [36.8, 37.8, 38.8, 39.7] : [98.2, 100.0, 101.8, 103.5];
+      
+      container.innerHTML = presets.map(val => `
+        <button type="button" onclick="document.getElementById('temp-input').value = ${val}" class="py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors">
+          ${val}°
+        </button>
+      `).join('');
+    }
+
+    function updateClassificationRanges() {
+      if (window.currentUnit === 'C') {
+        document.getElementById('range-normal').innerText = '< 37.5 °C';
+        document.getElementById('range-mild').innerText = '37.5 - 38.4 °C';
+        document.getElementById('range-high').innerText = '38.5 - 39.4 °C';
+        document.getElementById('range-severe').innerText = '≥ 39.5 °C';
+      } else {
+        document.getElementById('range-normal').innerText = '< 99.5 °F';
+        document.getElementById('range-mild').innerText = '99.5 - 101.1 °F';
+        document.getElementById('range-high').innerText = '101.2 - 102.9 °F';
+        document.getElementById('range-severe').innerText = '≥ 103.0 °F';
+      }
+    }
+
+    // Toast Notification System
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      const bgColor = type === 'success' ? 'bg-slate-900 text-white' : 'bg-rose-600 text-white';
+      const icon = type === 'success' ? 'check-circle' : 'trash-2';
+
+      toast.className = `${bgColor} px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 text-xs font-semibold transform transition-all duration-300 translate-y-2 opacity-0 pointer-events-auto`;
+      toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i> <span>${message}</span>`;
+      
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // Submit Log to Realtime Database
+    window.handleLogSubmit = function(event) {
+      event.preventDefault();
+      const input = document.getElementById('temp-input');
+      const noteInput = document.getElementById('note-input');
+      const submitBtn = document.getElementById('submit-btn');
+
+      const rawValue = input.value !== "" ? parseFloat(input.value) : null;
+      
+      if (rawValue === null && window.selectedFeelings.size === 0 && !noteInput.value.trim()) {
+        showToast("Enter a temperature, choose a feeling, or add a note.", "error");
+        return;
+      }
+
+      let tempC = null;
+      if (rawValue !== null && !isNaN(rawValue)) {
+        tempC = window.currentUnit === 'F' ? fToC(rawValue) : rawValue;
+      }
+
+      const newLog = {
+        tempC: tempC,
+        feelings: Array.from(window.selectedFeelings),
+        timestamp: new Date().toISOString(),
+        note: noteInput.value.trim()
+      };
+
+      submitBtn.disabled = true;
+      submitBtn.classList.add('opacity-75');
+
+      push(logsRef, newLog)
+        .then(() => {
+          input.value = '';
+          noteInput.value = '';
+          window.selectedFeelings.clear();
+          renderFeelingsGrid();
+          showToast("Log saved live to Firebase!");
+        })
+        .catch((err) => {
+          console.error("Firebase push error:", err);
+          showToast("Failed to save to database.", "error");
+        })
+        .finally(() => {
+          submitBtn.disabled = false;
+          submitBtn.classList.remove('opacity-75');
+        });
+    };
+
+    // Delete Log from Realtime Database
+    window.deleteLog = function(key) {
+      if (confirm("Delete this log permanently from the database?")) {
+        const itemRef = ref(db, `logs/${key}`);
+        remove(itemRef)
+          .then(() => showToast("Log removed from database", "error"))
+          .catch((err) => console.error("Remove error:", err));
+      }
+    };
+
+    // Main Feed Render Function
+    function renderFeed() {
+      const logsContainer = document.getElementById('logs-container');
+      const emptyState = document.getElementById('empty-state');
+      const loadingState = document.getElementById('loading-state');
+      
+      loadingState.classList.add('hidden');
+
+      const logsArray = window.rawLogsData;
+
+      // Update total count
+      document.getElementById('stat-total-count').innerText = logsArray.length;
+
+      if (logsArray.length === 0) {
+        logsContainer.innerHTML = '';
+        emptyState.classList.remove('hidden');
+
+        document.getElementById('stat-latest-val').innerText = '--';
+        document.getElementById('stat-latest-time').innerText = 'No logs recorded';
+        document.getElementById('stat-peak-val').innerText = '--';
+        document.getElementById('stat-status-badge').className = "px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200";
+        document.getElementById('stat-status-badge').innerText = 'No Data';
+        document.getElementById('stat-status-desc').innerText = 'Awaiting initial log';
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+
+      // Sort logs descending by timestamp
+      const sorted = [...logsArray].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      // 1. Latest Reading Stat
+      const latest = sorted[0];
+      const latestCat = getTemperatureCategory(latest.tempC);
+      
+      if (latest.tempC !== null && latest.tempC !== undefined) {
+        document.getElementById('stat-latest-val').innerText = formatTempDisplay(latest.tempC, window.currentUnit);
+        document.getElementById('stat-latest-unit').innerText = `°${window.currentUnit}`;
+      } else {
+        document.getElementById('stat-latest-val').innerText = 'N/A';
+        document.getElementById('stat-latest-unit').innerText = '(No Temp)';
+      }
+      document.getElementById('stat-latest-time').innerText = formatDateWithSeconds(latest.timestamp);
+
+      // Status Badge Update
+      const statusBadge = document.getElementById('stat-status-badge');
+      statusBadge.className = `px-2.5 py-1 rounded-full text-xs font-extrabold border ${latestCat.badgeBg} ${latestCat.badgeText} ${latestCat.badgeBorder}`;
+      statusBadge.innerText = latestCat.label;
+      document.getElementById('stat-status-desc').innerText = latestCat.desc;
+
+      // 2. Peak Temp Stat
+      const tempEntries = logsArray.filter(l => l.tempC !== null && l.tempC !== undefined);
+      if (tempEntries.length > 0) {
+        const peakTempC = Math.max(...tempEntries.map(l => l.tempC));
+        document.getElementById('stat-peak-val').innerText = formatTempDisplay(peakTempC, window.currentUnit);
+        document.getElementById('stat-peak-unit').innerText = `°${window.currentUnit}`;
+      } else {
+        document.getElementById('stat-peak-val').innerText = '--';
+      }
+
+      // Render History Feed Items
+      logsContainer.innerHTML = sorted.map(log => {
+        const cat = getTemperatureCategory(log.tempC);
+        const displayVal = formatTempDisplay(log.tempC, window.currentUnit);
+        const formattedTime = formatDateWithSeconds(log.timestamp);
+        
+        const logFeelings = (log.feelings || []).map(fId => window.feelingsList.find(f => f.id === fId)).filter(Boolean);
+
+        return `
+          <div class="p-4 rounded-2xl border border-slate-200/80 bg-white shadow-2xs transition-all ${cat.cardBorder} space-y-3 hover:shadow-xs">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div class="flex items-start gap-3">
+                <div class="mt-0.5 p-2.5 rounded-xl ${cat.badgeBg} ${cat.badgeText} shrink-0">
+                  <i data-lucide="${log.tempC !== null ? 'thermometer' : 'smile-plus'}" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    ${log.tempC !== null 
+                      ? `<span class="text-2xl font-extrabold text-slate-900">${displayVal} °${window.currentUnit}</span>` 
+                      : `<span class="text-base font-bold text-slate-500 italic">No Temp Recorded</span>`
+                    }
+                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${cat.badgeBg} ${cat.badgeText} ${cat.badgeBorder} flex items-center gap-1.5">
+                      <span class="w-1.5 h-1.5 rounded-full ${cat.dotBg}"></span>
+                      ${cat.label}
+                    </span>
+                  </div>
+                  ${log.note ? `<p class="text-xs text-slate-600 mt-1 font-medium">"${escapeHtml(log.note)}"</p>` : ''}
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                <span class="text-[11px] text-slate-400 font-semibold flex items-center gap-1">
+                  <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                  ${formattedTime}
+                </span>
+                <button onclick="window.deleteLog('${log.key}')" class="text-slate-300 hover:text-rose-500 transition-colors p-1" title="Delete entry from database">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+
+            ${logFeelings.length > 0 ? `
+              <div class="pt-2 border-t border-slate-100/80 flex flex-wrap gap-1.5">
+                ${logFeelings.map(f => `
+                  <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 flex items-center gap-1 border border-slate-200/50">
+                    <span>${f.icon}</span> ${f.label}
+                  </span>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+      });
+    }
+
+    // Firebase Listener (Realtime Synchronization)
+    onValue(logsRef, (snapshot) => {
+      const data = snapshot.val();
+      const logsList = [];
+      if (data) {
+        Object.keys(data).forEach(key => {
+          logsList.push({ key, ...data[key] });
+        });
+      }
+      window.rawLogsData = logsList;
+      renderFeed();
+
+      // Update Live Sync status text
+      const liveIndicator = document.getElementById('live-indicator');
+      if (liveIndicator) {
+        liveIndicator.innerText = `Live (${logsList.length} items synced)`;
+        liveIndicator.className = "text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200";
+      }
+    }, (error) => {
+      console.error("Firebase database listener error:", error);
+      showToast("Database connection error", "error");
+    });
+
+    // App Startup Initialization
+    window.onload = function() {
+      renderFeelingsGrid();
+      updatePresetButtons();
+      updateClassificationRanges();
+      lucide.createIcons();
+    };
+  </script>
+</body>
+</html>
