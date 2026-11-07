@@ -243,23 +243,29 @@
           <div class="mt-6 pt-5 border-t border-slate-100">
             <span class="block text-[11px] font-bold text-slate-400 mb-3 uppercase tracking-wider">Fever Threshold Reference</span>
             <div class="space-y-1.5 text-xs">
+              <div class="flex items-center justify-between p-2 rounded-lg bg-cyan-50 text-cyan-800 border border-cyan-100">
+                <span class="font-medium flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-cyan-500"></span> Low Temp / Hypothermia
+                </span>
+                <span class="font-bold" id="range-low">&lt; 35.0 °C</span>
+              </div>
               <div class="flex items-center justify-between p-2 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-100">
                 <span class="font-medium flex items-center gap-1.5">
                   <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Normal Temperature
                 </span>
-                <span class="font-bold" id="range-normal">&lt; 37.5 °C</span>
+                <span class="font-bold" id="range-normal">35.0 - 37.5 °C</span>
               </div>
               <div class="flex items-center justify-between p-2 rounded-lg bg-amber-50 text-amber-800 border border-amber-100">
                 <span class="font-medium flex items-center gap-1.5">
                   <span class="w-2 h-2 rounded-full bg-amber-500"></span> Mild Fever
                 </span>
-                <span class="font-bold" id="range-mild">37.5 - 38.4 °C</span>
+                <span class="font-bold" id="range-mild">37.6 - 38.3 °C</span>
               </div>
               <div class="flex items-center justify-between p-2 rounded-lg bg-orange-50 text-orange-800 border border-orange-100">
                 <span class="font-medium flex items-center gap-1.5">
                   <span class="w-2 h-2 rounded-full bg-orange-500"></span> High Fever
                 </span>
-                <span class="font-bold" id="range-high">38.5 - 39.4 °C</span>
+                <span class="font-bold" id="range-high">38.4 - 39.4 °C</span>
               </div>
               <div class="flex items-center justify-between p-2 rounded-lg bg-rose-50 text-rose-800 border border-rose-100">
                 <span class="font-medium flex items-center gap-1.5">
@@ -378,7 +384,7 @@
       return parseFloat(tempC).toFixed(1);
     }
 
-    // Fever Categorization Logic
+    // Fever & Hypothermia Categorization Logic
     function getTemperatureCategory(tempC) {
       if (tempC === null || tempC === undefined) {
         return {
@@ -393,7 +399,18 @@
         };
       }
       
-      if (tempC < 37.5) {
+      if (tempC < 35.0) {
+        return {
+          key: 'low',
+          label: 'Low Temp / Cold',
+          badgeBg: 'bg-cyan-50',
+          badgeText: 'text-cyan-800',
+          badgeBorder: 'border-cyan-200',
+          dotBg: 'bg-cyan-500',
+          cardBorder: 'hover:border-cyan-200',
+          desc: 'Below optimal body temperature (Hypothermia risk).'
+        };
+      } else if (tempC <= 37.5) {
         return {
           key: 'normal',
           label: 'Normal Temp',
@@ -402,9 +419,9 @@
           badgeBorder: 'border-emerald-200',
           dotBg: 'bg-emerald-500',
           cardBorder: 'hover:border-emerald-200',
-          desc: 'Temperature is within normal range.'
+          desc: 'Temperature is within normal optimal range.'
         };
-      } else if (tempC <= 38.4) {
+      } else if (tempC <= 38.3) {
         return {
           key: 'mild',
           label: 'Mild Fever',
@@ -413,12 +430,12 @@
           badgeBorder: 'border-amber-200',
           dotBg: 'bg-amber-500',
           cardBorder: 'hover:border-amber-200',
-          desc: 'Low-grade fever detected.'
+          desc: 'Elevated temperature / low-grade fever.'
         };
       } else if (tempC <= 39.4) {
         return {
           key: 'high',
-          label: 'High Fever',
+          label: 'Moderate Fever',
           badgeBg: 'bg-orange-50',
           badgeText: 'text-orange-700',
           badgeBorder: 'border-orange-200',
@@ -527,7 +544,7 @@
 
     function updatePresetButtons() {
       const container = document.getElementById('presets-container');
-      const presets = window.currentUnit === 'C' ? [36.8, 37.8, 38.8, 39.7] : [98.2, 100.0, 101.8, 103.5];
+      const presets = window.currentUnit === 'C' ? [34.5, 36.8, 38.0, 39.7] : [94.1, 98.2, 100.4, 103.5];
       
       container.innerHTML = presets.map(val => `
         <button type="button" onclick="document.getElementById('temp-input').value = ${val}" class="py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors">
@@ -538,14 +555,16 @@
 
     function updateClassificationRanges() {
       if (window.currentUnit === 'C') {
-        document.getElementById('range-normal').innerText = '< 37.5 °C';
-        document.getElementById('range-mild').innerText = '37.5 - 38.4 °C';
-        document.getElementById('range-high').innerText = '38.5 - 39.4 °C';
+        document.getElementById('range-low').innerText = '< 35.0 °C';
+        document.getElementById('range-normal').innerText = '35.0 - 37.5 °C';
+        document.getElementById('range-mild').innerText = '37.6 - 38.3 °C';
+        document.getElementById('range-high').innerText = '38.4 - 39.4 °C';
         document.getElementById('range-severe').innerText = '≥ 39.5 °C';
       } else {
-        document.getElementById('range-normal').innerText = '< 99.5 °F';
-        document.getElementById('range-mild').innerText = '99.5 - 101.1 °F';
-        document.getElementById('range-high').innerText = '101.2 - 102.9 °F';
+        document.getElementById('range-low').innerText = '< 95.0 °F';
+        document.getElementById('range-normal').innerText = '95.0 - 99.5 °F';
+        document.getElementById('range-mild').innerText = '99.6 - 100.9 °F';
+        document.getElementById('range-high').innerText = '101.0 - 102.9 °F';
         document.getElementById('range-severe').innerText = '≥ 103.0 °F';
       }
     }
